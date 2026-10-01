@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from pdf_processing import extract_pages
 from retrieval import chunk_pages, Retriever
+from qa import answer_question
 
 load_dotenv()
 
@@ -58,7 +59,34 @@ async def upload_pdf(file: UploadFile = File(...)):
 
 @app.post("/search")
 def search(body: Question):
-    """Temporary test endpoint: shows which chunks retrieval picks."""
+    """Test endpoint: shows which chunks retrieval picks."""
     if DOCUMENT["retriever"] is None:
         raise HTTPException(400, "Upload a PDF first.")
     return DOCUMENT["retriever"].search(body.question)
+
+
+@app.post("/ask")
+def ask(body: Question):
+    if DOCUMENT["retriever"] is None:
+        raise HTTPException(400, "Upload a PDF first.")
+
+    chunks = DOCUMENT["retriever"].search(body.question, top_k=4)
+    if not chunks:
+        return {
+            "answer": "I couldn't find this in the document.",
+            "sources": [],
+        }
+
+    try:
+        answer = answer_question(body.question, chunks)
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+    except Exception as e:
+        raise HTTPException(502, f"AI API error: {e}")
+
+    sources = sorted({c["page"] for c in chunks})
+    return {
+        "answer": answer,
+        "sources": sources,
+        "document": DOCUMENT["name"],
+    }
