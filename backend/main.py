@@ -72,7 +72,8 @@ def ask(body: Question):
     if DOCUMENT["retriever"] is None:
         raise HTTPException(400, "Upload a PDF first.")
 
-    chunks = DOCUMENT["retriever"].search(body.question, top_k=4)
+    chunks = DOCUMENT["retriever"].search(body.question, top_k=8)
+
     if not chunks:
         return {
             "answer": "I couldn't find this in the document.",
@@ -87,6 +88,7 @@ def ask(body: Question):
         raise HTTPException(502, f"AI API error: {e}")
 
     sources = sorted({c["page"] for c in chunks})
+
     return {
         "answer": answer,
         "sources": sources,
