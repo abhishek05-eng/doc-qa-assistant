@@ -3,6 +3,14 @@ import "./App.css";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+function getCitedPages(answer) {
+  const matches = [
+    ...answer.matchAll(/\bPage\s+(\d+)\b/gi),
+  ];
+
+  return [...new Set(matches.map((match) => Number(match[1])))];
+}
+
 export default function App() {
   const [doc, setDoc] = useState(null); // {filename, total_pages}
   const [messages, setMessages] = useState([]);
@@ -18,15 +26,30 @@ export default function App() {
   async function handleUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
+
     setError("");
     setLoading(true);
+
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch(`${API}/upload`, { method: "POST", body: form });
+
+      const res = await fetch(`${API}/upload`, {
+        method: "POST",
+        body: form,
+      });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Upload failed");
-      setDoc({ filename: data.filename, total_pages: data.total_pages });
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Upload failed");
+      }
+
+      setDoc({
+        filename: data.filename,
+        total_pages: data.total_pages,
+      });
+
       setMessages([]);
     } catch (err) {
       setError(err.message);
@@ -38,23 +61,50 @@ export default function App() {
 
   async function handleAsk(e) {
     e.preventDefault();
+
     const question = input.trim();
+
     if (!question || !doc || loading) return;
+
     setInput("");
     setError("");
-    setMessages((m) => [...m, { role: "user", text: question }]);
+
+    setMessages((m) => [
+      ...m,
+      {
+        role: "user",
+        text: question,
+      },
+    ]);
+
     setLoading(true);
+
     try {
       const res = await fetch(`${API}/ask`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ question }),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Request failed");
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Request failed");
+      }
+
+      // Show only the pages that Gemini actually cited
+      // in the final answer.
+      const citedPages = getCitedPages(data.answer);
+
       setMessages((m) => [
         ...m,
-        { role: "ai", text: data.answer, sources: data.sources },
+        {
+          role: "ai",
+          text: data.answer,
+          sources: citedPages,
+        },
       ]);
     } catch (err) {
       setError(err.message);
@@ -67,17 +117,30 @@ export default function App() {
     <div className="app">
       <header>
         <h1>Document Q&amp;A Assistant</h1>
-        <p>Upload a PDF and ask questions. Answers come only from the document.</p>
+
+        <p>
+          Upload a PDF and ask questions. Answers come only from the document.
+        </p>
       </header>
 
       <div className="toolbar">
         <label className="btn">
           Upload PDF
-          <input type="file" accept=".pdf" onChange={handleUpload} hidden />
+
+          <input
+            type="file"
+            accept=".pdf"
+            onChange={handleUpload}
+            hidden
+          />
         </label>
+
         <span className="docname">
-          {doc ? `${doc.filename} (${doc.total_pages} pages)` : "No document uploaded"}
+          {doc
+            ? `${doc.filename} (${doc.total_pages} pages)`
+            : "No document uploaded"}
         </span>
+
         <button
           className="btn secondary"
           onClick={() => setMessages([])}
@@ -90,36 +153,60 @@ export default function App() {
       <div className="chat">
         {messages.length === 0 && (
           <p className="hint">
-            {doc ? "Ask a question about your document." : "Upload a PDF to start."}
+            {doc
+              ? "Ask a question about your document."
+              : "Upload a PDF to start."}
           </p>
         )}
+
         {messages.map((m, i) => (
           <div key={i} className={`bubble ${m.role}`}>
             <div>{m.text}</div>
+
             {m.sources && m.sources.length > 0 && (
               <div className="sources">
                 Sources:{" "}
+
                 {m.sources.map((p) => (
-                  <span key={p} className="chip">Page {p}</span>
+                  <span key={p} className="chip">
+                    Page {p}
+                  </span>
                 ))}
               </div>
             )}
           </div>
         ))}
-        {loading && <div className="bubble ai">Thinking...</div>}
+
+        {loading && (
+          <div className="bubble ai">
+            Thinking...
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
-      {error && <div className="error">{error}</div>}
+      {error && (
+        <div className="error">
+          {error}
+        </div>
+      )}
 
       <form className="inputbar" onSubmit={handleAsk}>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={doc ? "Ask a question..." : "Upload a PDF first"}
+          placeholder={
+            doc ? "Ask a question..." : "Upload a PDF first"
+          }
           disabled={!doc}
         />
-        <button className="btn" type="submit" disabled={!doc || loading}>
+
+        <button
+          className="btn"
+          type="submit"
+          disabled={!doc || loading}
+        >
           Send
         </button>
       </form>
