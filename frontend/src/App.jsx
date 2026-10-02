@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import "./App.css";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -12,7 +13,7 @@ function getCitedPages(answer) {
 }
 
 export default function App() {
-  const [doc, setDoc] = useState(null); // {filename, total_pages}
+  const [doc, setDoc] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,6 +26,7 @@ export default function App() {
 
   async function handleUpload(e) {
     const file = e.target.files[0];
+
     if (!file) return;
 
     setError("");
@@ -94,8 +96,7 @@ export default function App() {
         throw new Error(data.detail || "Request failed");
       }
 
-      // Show only the pages that Gemini actually cited
-      // in the final answer.
+      // Show only the pages cited in the final AI answer.
       const citedPages = getCitedPages(data.answer);
 
       setMessages((m) => [
@@ -161,7 +162,13 @@ export default function App() {
 
         {messages.map((m, i) => (
           <div key={i} className={`bubble ${m.role}`}>
-            <div>{m.text}</div>
+            <div>
+              {m.role === "ai" ? (
+                <ReactMarkdown>{m.text}</ReactMarkdown>
+              ) : (
+                m.text
+              )}
+            </div>
 
             {m.sources && m.sources.length > 0 && (
               <div className="sources">
