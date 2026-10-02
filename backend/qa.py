@@ -2,9 +2,8 @@ import os
 from google import genai
 from google.genai import types
 
-# If this model name ever errors, open aistudio.google.com and pick
-# a current Flash model from the model list, then change it here.
-MODEL = "gemini-2.5-flash"
+# Current Flash model
+MODEL = "gemini-3.5-flash"
 
 SYSTEM_PROMPT = """You are a document Q&A assistant.
 Answer the user's question using ONLY the document excerpts provided.
