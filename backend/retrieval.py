@@ -8,11 +8,18 @@ def chunk_pages(pages: list[dict], size: int = 800, overlap: int = 150) -> list[
     for p in pages:
         text = p["text"]
         start = 0
+
         while start < len(text):
             piece = text[start:start + size].strip()
+
             if piece:
-                chunks.append({"page": p["page"], "text": piece})
+                chunks.append({
+                    "page": p["page"],
+                    "text": piece
+                })
+
             start += size - overlap
+
     return chunks
 
 
@@ -20,34 +27,21 @@ class Retriever:
     def __init__(self, chunks: list[dict]):
         self.chunks = chunks
         self.vectorizer = TfidfVectorizer(stop_words="english")
-        self.matrix = self.vectorizer.fit_transform([c["text"] for c in chunks])
+        self.matrix = self.vectorizer.fit_transform(
+            [c["text"] for c in chunks]
+        )
 
     def search(self, question: str, top_k: int = 8) -> list[dict]:
         q_vec = self.vectorizer.transform([question])
         scores = cosine_similarity(q_vec, self.matrix)[0]
 
-        best = scores.argsort()[::-1]
+        best = scores.argsort()[::-1][:top_k]
 
-        results = []
-        seen_pages = set()
-
-        for i in best:
-            if scores[i] <= 0:
-                continue
-
-            page = self.chunks[i]["page"]
-
-            # Keep only the strongest matching chunk from each page.
-            if page in seen_pages:
-                continue
-
-            results.append({
+        return [
+            {
                 **self.chunks[i],
                 "score": float(scores[i])
-            })
-            seen_pages.add(page)
-
-            if len(results) >= top_k:
-                break
-
-        return results
+            }
+            for i in best
+            if scores[i] > 0
+        ]
