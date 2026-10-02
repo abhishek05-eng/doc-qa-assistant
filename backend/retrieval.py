@@ -22,12 +22,32 @@ class Retriever:
         self.vectorizer = TfidfVectorizer(stop_words="english")
         self.matrix = self.vectorizer.fit_transform([c["text"] for c in chunks])
 
-    def search(self, question: str, top_k: int = 4) -> list[dict]:
+    def search(self, question: str, top_k: int = 8) -> list[dict]:
         q_vec = self.vectorizer.transform([question])
         scores = cosine_similarity(q_vec, self.matrix)[0]
-        best = scores.argsort()[::-1][:top_k]
-        return [
-            {**self.chunks[i], "score": float(scores[i])}
-            for i in best
-            if scores[i] > 0
-        ]
+
+        best = scores.argsort()[::-1]
+
+        results = []
+        seen_pages = set()
+
+        for i in best:
+            if scores[i] <= 0:
+                continue
+
+            page = self.chunks[i]["page"]
+
+            # Keep only the strongest matching chunk from each page.
+            if page in seen_pages:
+                continue
+
+            results.append({
+                **self.chunks[i],
+                "score": float(scores[i])
+            })
+            seen_pages.add(page)
+
+            if len(results) >= top_k:
+                break
+
+        return results
