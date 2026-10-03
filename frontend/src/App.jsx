@@ -96,7 +96,6 @@ export default function App() {
         throw new Error(data.detail || "Request failed");
       }
 
-      // Show only the pages cited in the final AI answer.
       const citedPages = getCitedPages(data.answer);
 
       setMessages((m) => [
@@ -114,109 +113,196 @@ export default function App() {
     }
   }
 
+  function clearChat() {
+    setMessages([]);
+    setError("");
+  }
+
   return (
     <div className="app">
-      <header>
-        <h1>Document Q&amp;A Assistant</h1>
+      <header className="topbar">
+        <div>
+          <div className="brand">
+            <div className="brand-icon">Q</div>
+            <div>
+              <h1>Document Q&amp;A Assistant</h1>
+              <p>Ask questions and get answers directly from your document.</p>
+            </div>
+          </div>
+        </div>
 
-        <p>
-          Upload a PDF and ask questions. Answers come only from the document.
-        </p>
+        <div className="status">
+          <span className="status-dot"></span>
+          <span>AI Ready</span>
+        </div>
       </header>
 
-      <div className="toolbar">
-        <label className="btn">
-          Upload PDF
+      <main className="workspace">
+        <section className="document-card">
+          <div className="document-info">
+            <div className="pdf-icon">PDF</div>
 
-          <input
-            type="file"
-            accept=".pdf"
-            onChange={handleUpload}
-            hidden
-          />
-        </label>
+            <div className="document-text">
+              <span className="section-label">CURRENT DOCUMENT</span>
 
-        <span className="docname">
-          {doc
-            ? `${doc.filename} (${doc.total_pages} pages)`
-            : "No document uploaded"}
-        </span>
+              <h2>
+                {doc ? doc.filename : "No document uploaded"}
+              </h2>
 
-        <button
-          className="btn secondary"
-          onClick={() => setMessages([])}
-          disabled={messages.length === 0}
-        >
-          Clear chat
-        </button>
-      </div>
+              <p>
+                {doc
+                  ? `${doc.total_pages} pages • Ready for questions`
+                  : "Upload a PDF to begin"}
+              </p>
+            </div>
+          </div>
 
-      <div className="chat">
-        {messages.length === 0 && (
-          <p className="hint">
-            {doc
-              ? "Ask a question about your document."
-              : "Upload a PDF to start."}
-          </p>
-        )}
+          <div className="document-actions">
+            <label className="btn primary">
+              {doc ? "Change PDF" : "Upload PDF"}
 
-        {messages.map((m, i) => (
-          <div key={i} className={`bubble ${m.role}`}>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={handleUpload}
+                hidden
+              />
+            </label>
+
+            <button
+              className="btn secondary"
+              onClick={clearChat}
+              disabled={messages.length === 0}
+            >
+              Clear Chat
+            </button>
+          </div>
+        </section>
+
+        <section className="chat-card">
+          <div className="chat-header">
             <div>
-              {m.role === "ai" ? (
-                <ReactMarkdown>{m.text}</ReactMarkdown>
-              ) : (
-                m.text
-              )}
+              <span className="section-label">CONVERSATION</span>
+              <h2>Ask about your document</h2>
             </div>
 
-            {m.sources && m.sources.length > 0 && (
-              <div className="sources">
-                Sources:{" "}
-
-                {m.sources.map((p) => (
-                  <span key={p} className="chip">
-                    Page {p}
-                  </span>
-                ))}
-              </div>
+            {doc && (
+              <span className="document-ready">
+                Document loaded
+              </span>
             )}
           </div>
-        ))}
 
-        {loading && (
-          <div className="bubble ai">
-            Thinking...
+          <div className="chat">
+            {messages.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-icon">?</div>
+
+                <h3>
+                  {doc
+                    ? "What would you like to know?"
+                    : "Upload a PDF to get started"}
+                </h3>
+
+                <p>
+                  {doc
+                    ? "Ask a question about the content of your document."
+                    : "Your answers will be generated using only the uploaded document."}
+                </p>
+              </div>
+            )}
+
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                className={`message-row ${m.role}`}
+              >
+                <div className="message-avatar">
+                  {m.role === "ai" ? "AI" : "You"}
+                </div>
+
+                <div className={`bubble ${m.role}`}>
+                  <div className="message-content">
+                    {m.role === "ai" ? (
+                      <ReactMarkdown>{m.text}</ReactMarkdown>
+                    ) : (
+                      m.text
+                    )}
+                  </div>
+
+                  {m.sources && m.sources.length > 0 && (
+                    <div className="sources">
+                      <span className="sources-label">
+                        Sources
+                      </span>
+
+                      {m.sources.map((p) => (
+                        <span key={p} className="chip">
+                          Page {p}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div className="message-row ai">
+                <div className="message-avatar">AI</div>
+
+                <div className="bubble ai">
+                  <div className="thinking">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <strong>Thinking...</strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={bottomRef} />
           </div>
-        )}
 
-        <div ref={bottomRef} />
-      </div>
+          {error && (
+            <div className="error">
+              <strong>Something went wrong</strong>
+              <span>{error}</span>
+            </div>
+          )}
 
-      {error && (
-        <div className="error">
-          {error}
-        </div>
-      )}
+          <form className="inputbar" onSubmit={handleAsk}>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={
+                doc
+                  ? "Ask a question about your document..."
+                  : "Upload a PDF first"
+              }
+              disabled={!doc || loading}
+            />
 
-      <form className="inputbar" onSubmit={handleAsk}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={
-            doc ? "Ask a question..." : "Upload a PDF first"
-          }
-          disabled={!doc}
-        />
+            <button
+              className="send-btn"
+              type="submit"
+              disabled={!doc || loading || !input.trim()}
+            >
+              Send
+            </button>
+          </form>
 
-        <button
-          className="btn"
-          type="submit"
-          disabled={!doc || loading}
-        >
-          Send
-        </button>
-      </form>
+          <p className="privacy-note">
+            Answers are generated from the uploaded document only.
+          </p>
+        </section>
+      </main>
+
+      <footer>
+        <span>Document Q&amp;A Assistant</span>
+        <span>Powered by FastAPI + Gemini</span>
+      </footer>
     </div>
   );
 }
